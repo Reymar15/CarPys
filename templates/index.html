@@ -2,74 +2,90 @@
 <html>
 <head>
   <title>DriveLux</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
   <!-- NAVBAR -->
-  <nav class="navbar">
-    <h2 class="logo">DRIVE<span>LUX</span></h2>
-
-    <ul class="nav-links">
-      <li>Home</li>
-      <li>Browse Cars</li>
-      <li>My Bookings</li>
-      <li>Sign In</li>
-      <button class="browse-btn">Browse Cars</button>
-    </ul>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top border-bottom border-secondary">
+    <div class="container-fluid px-5">
+      <a class="navbar-brand fw-bold fs-4 letter-spacing" href="#">DRIVE<span class="text-warning">LUX</span></a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navMenu">
+        <ul class="navbar-nav ms-auto align-items-center gap-3">
+          <li class="nav-item"><a class="nav-link" href="#">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="#">Browse Cars</a></li>
+          <li class="nav-item"><a class="nav-link" href="#">My Bookings</a></li>
+          <li class="nav-item"><a class="nav-link" href="#">Sign In</a></li>
+          <li class="nav-item"><a class="btn btn-warning fw-bold px-4" href="#">Browse Cars</a></li>
+        </ul>
+      </div>
+    </div>
   </nav>
 
   <!-- HERO -->
-  <section class="hero">
-    <div>
-      <h1>Drive Your <span>Dream Car</span></h1>
-      <p>Premium car rental service with luxury vehicles for every occasion.</p>
-
-      <div class="buttons">
-        <button class="btn-yellow">Browse Cars</button>
-        <button class="btn-dark">My Bookings</button>
-      </div>
+  <section class="hero d-flex align-items-center">
+    <div class="container-fluid px-5">
+      <h1 class="display-3 fw-bold">Drive Your <span class="text-warning">Dream Car</span></h1>
+      <p class="text-secondary fs-5 mt-3 mb-4">Premium car rental service with luxury vehicles for every occasion.</p>
+      <a href="#" class="btn btn-warning fw-bold px-4 py-2 me-2">Browse Cars</a>
+      <a href="#" class="btn btn-outline-light px-4 py-2">My Bookings</a>
     </div>
   </section>
 
   <!-- FEATURES -->
-  <section class="features">
-    <div class="card">
-      <h3>Fully Insured</h3>
-      <p>All vehicles come with comprehensive insurance coverage.</p>
-    </div>
-
-    <div class="card">
-      <h3>24/7 Support</h3>
-      <p>Round-the-clock customer support for your convenience.</p>
-    </div>
-
-    <div class="card">
-      <h3>Premium Fleet</h3>
-      <p>Handpicked luxury and performance vehicles.</p>
+  <section class="bg-dark py-5">
+    <div class="container">
+      <div class="row g-4 justify-content-center">
+        <div class="col-md-4">
+          <div class="card-feature text-center p-4 rounded">
+            <h5 class="text-warning fw-bold">Fully Insured</h5>
+            <p class="text-secondary mb-0">All vehicles come with comprehensive insurance coverage.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card-feature text-center p-4 rounded">
+            <h5 class="text-warning fw-bold">24/7 Support</h5>
+            <p class="text-secondary mb-0">Round-the-clock customer support for your convenience.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card-feature text-center p-4 rounded">
+            <h5 class="text-warning fw-bold">Premium Fleet</h5>
+            <p class="text-secondary mb-0">Handpicked luxury and performance vehicles.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
   <!-- CARS -->
-  <section class="cars">
-    <h2>Featured Cars</h2>
-
-    <div class="car-container">
+  <section class="py-5 px-5">
+    <h2 class="fw-bold mb-4 border-start border-warning border-4 ps-3">Featured Cars</h2>
+    <div class="row g-4">
       {% for car in cars %}
-      <div class="car-card">
-        <img src="{{ car.image }}" alt="{{ car.name }}">
-        <h3>{{ car.name }}</h3>
-        <p>{{ car.price }}</p>
-        <button>View Details</button>
+      <div class="col-md-4">
+        <div class="car-card rounded overflow-hidden">
+          <img src="{{ car.image }}" alt="{{ car.name }}" class="w-100" style="height:200px;object-fit:cover;">
+          <div class="p-3">
+            <h5 class="fw-bold mb-1">{{ car.name }}</h5>
+            <p class="text-warning fw-bold mb-3">{{ car.price }}</p>
+            <a href="#" class="btn btn-warning w-100 fw-bold">View Details</a>
+          </div>
+        </div>
       </div>
       {% endfor %}
     </div>
   </section>
 
   <!-- FOOTER -->
-  <footer>
-    <p>© 2026 DriveLux. All rights reserved.</p>
+  <footer class="bg-dark text-secondary text-center py-4 border-top border-secondary">
+    <p class="mb-0">© 2026 DriveLux. All rights reserved.</p>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
