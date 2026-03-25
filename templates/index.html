@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>DriveLux</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <h2 class="logo">DRIVE<span>LUX</span></h2>
+
+    <ul class="nav-links">
+      <li>Home</li>
+      <li>Browse Cars</li>
+      <li>My Bookings</li>
+      <li>Sign In</li>
+      <button class="browse-btn">Browse Cars</button>
+    </ul>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div>
+      <h1>Drive Your <span>Dream Car</span></h1>
+      <p>Premium car rental service with luxury vehicles for every occasion.</p>
+
+      <div class="buttons">
+        <button class="btn-yellow">Browse Cars</button>
+        <button class="btn-dark">My Bookings</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features">
+    <div class="card">
+      <h3>Fully Insured</h3>
+      <p>All vehicles come with comprehensive insurance coverage.</p>
+    </div>
+
+    <div class="card">
+      <h3>24/7 Support</h3>
+      <p>Round-the-clock customer support for your convenience.</p>
+    </div>
+
+    <div class="card">
+      <h3>Premium Fleet</h3>
+      <p>Handpicked luxury and performance vehicles.</p>
+    </div>
+  </section>
+
+  <!-- CARS -->
+  <section class="cars">
+    <h2>Featured Cars</h2>
+
+    <div class="car-container">
+      {% for car in cars %}
+      <div class="car-card">
+        <img src="{{ car.image }}" alt="{{ car.name }}">
+        <h3>{{ car.name }}</h3>
+        <p>{{ car.price }}</p>
+        <button>View Details</button>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>© 2026 DriveLux. All rights reserved.</p>
+  </footer>
+
+</body>
+</html>
