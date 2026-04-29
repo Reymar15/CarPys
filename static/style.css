@@ -6,7 +6,8 @@ body {
 .hero {
   min-height: 560px;
   background: linear-gradient(to right, rgba(0,0,0,0.85) 40%, transparent),
-              url("https://images.unsplash.com/photo-1493238792000-8113da705763") center/cover no-repeat;
+              url("https://images.unsplash.com/photo-1493238792000-8113da705763?auto=format&fit=crop&w=1800&q=80") center/cover no-repeat;
+  background-color: #0a0a0a;
 }
 
 .card-feature {
