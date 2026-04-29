@@ -1,0 +1,29 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h2 class="fw-bold mb-4">Create Admin Account</h2>
+
+<div class="p-4 rounded" style="max-width:480px; background:#1a1a1a; border:1px solid #2a2a2a;">
+  {% if error %}
+  <div class="alert alert-danger py-2">{{ error }}</div>
+  {% endif %}
+  {% if message %}
+  <div class="alert alert-success py-2">{{ message }}</div>
+  {% endif %}
+
+  <form method="POST">
+    <div class="mb-3">
+      <label class="form-label text-secondary">Username</label>
+      <input type="text" name="username" class="form-control bg-dark text-white border-secondary" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label text-secondary">Email</label>
+      <input type="email" name="email" class="form-control bg-dark text-white border-secondary" required>
+    </div>
+    <div class="mb-4">
+      <label class="form-label text-secondary">Password</label>
+      <input type="password" name="password" class="form-control bg-dark text-white border-secondary" required>
+    </div>
+    <button type="submit" class="btn btn-warning w-100 fw-bold">Create Admin</button>
+  </form>
+</div>
+{% endblock %}

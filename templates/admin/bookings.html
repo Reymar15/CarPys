@@ -1,0 +1,50 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h2 class="fw-bold mb-4">All Bookings</h2>
+{% if all_bookings %}
+<div class="table-responsive">
+  <table class="table table-dark table-bordered table-hover">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Image</th>
+        <th>Car</th>
+        <th>User</th>
+        <th>Pick-up</th>
+        <th>Drop-off</th>
+        <th>Price</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user, b in all_bookings %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td><img src="{{ b.car.image }}" style="width:80px;height:50px;object-fit:cover;border-radius:4px;"></td>
+        <td>{{ b.car.name }}</td>
+        <td class="text-warning">{{ user }}</td>
+        <td>{{ b.pickup }}</td>
+        <td>{{ b.dropoff }}</td>
+        <td class="text-warning fw-bold">{{ b.car.price }}</td>
+        <td><span class="badge {{ 'bg-warning text-dark' if b.status in ['Pending Pickup', 'Confirmed'] else 'bg-info text-dark' if b.status == 'Pickup Confirmed' else 'bg-success' }}">{{ b.status }}</span></td>
+        <td>
+          {% if b.status == 'Pickup Confirmed' %}
+          <form method="POST" action="{{ url_for('admin_confirm_dropoff', booking_id=b.id) }}">
+            <button type="submit" class="btn btn-sm btn-warning fw-bold">Confirm Drop-off</button>
+          </form>
+          {% elif b.status in ['Pending Pickup', 'Confirmed'] %}
+          <span class="text-secondary small">Waiting for pick-up</span>
+          {% else %}
+          <span class="text-success small">Completed</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-secondary">No bookings yet.</p>
+{% endif %}
+{% endblock %}

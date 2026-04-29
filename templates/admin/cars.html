@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h2 class="fw-bold mb-4">Manage Cars</h2>
+<div class="table-responsive">
+  <table class="table table-dark table-bordered table-hover">
+    <thead>
+      <tr>
+        <th>Image</th>
+        <th>Name</th>
+        <th>Brand</th>
+        <th>Category</th>
+        <th>Price</th>
+        <th>Seats</th>
+        <th>Fuel</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for brand, car in all_cars %}
+      <tr>
+        <td><img src="{{ car.image }}" style="width:80px;height:50px;object-fit:cover;border-radius:4px;"></td>
+        <td>{{ car.name }}</td>
+        <td>{{ brand }}</td>
+        <td><span class="badge bg-warning text-dark">{{ car.category }}</span></td>
+        <td class="text-warning fw-bold">{{ car.price }}</td>
+        <td>{{ car.seats }}</td>
+        <td>{{ car.fuel }}</td>
+        <td>
+          <a href="{{ url_for('admin_delete_car', car_id=car.id) }}"
+             onclick="return confirm('Delete {{ car.name }}?')"
+             class="btn btn-danger btn-sm">Delete</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

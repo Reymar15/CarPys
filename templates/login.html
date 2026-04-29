@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login – DriveLux</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="d-flex align-items-center justify-content-center" style="min-height:100vh;">
+
+  <div class="p-4 rounded auth-box w-100" style="max-width:420px;">
+    <h3 class="fw-bold mb-1 text-center">Welcome Back</h3>
+    <p class="text-secondary text-center mb-4">Sign in to continue to <span class="text-warning fw-bold">DriveLux</span></p>
+
+    {% if error %}
+    <div class="alert alert-danger py-2">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/login?next={{ next }}">
+      <div class="mb-3">
+        <label class="form-label text-secondary">Email</label>
+        <input type="text" name="email" class="form-control bg-dark text-white border-secondary" required>
+      </div>
+      <div class="mb-4">
+        <label class="form-label text-secondary">Password</label>
+        <input type="password" name="password" class="form-control bg-dark text-white border-secondary" required>
+      </div>
+      <button type="submit" class="btn btn-warning w-100 fw-bold">Sign In</button>
+    </form>
+
+    <p class="text-center text-secondary mt-3 mb-0">Don't have an account? <a href="{{ url_for('signup') }}" class="text-warning">Sign Up</a></p>
+    <p class="text-center text-secondary mt-2 mb-0"><a href="{{ url_for('forgot_password') }}" class="text-warning">Forgot Password?</a></p>
+  </div>
+
+</body>
+</html>
