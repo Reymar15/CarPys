@@ -14,6 +14,8 @@
         <a class="nav-link text-white" href="{{ url_for('home') }}">Home</a>
         <a class="nav-link text-white" href="{{ url_for('cars') }}">Browse Cars</a>
         <a class="nav-link active text-warning" href="{{ url_for('my_bookings') }}">My Bookings</a>
+        <a class="nav-link text-white" href="{{ url_for('user_messages') }}">Messages</a>
+        <a class="nav-link text-white" href="{{ url_for('profile') }}">Profile</a>
         <span class="text-warning fw-bold">{{ user }}</span>
         <a class="btn btn-outline-warning fw-bold px-4" href="{{ url_for('logout') }}">Logout</a>
       </div>

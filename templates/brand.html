@@ -17,6 +17,8 @@
         <a class="nav-link text-white" href="{{ url_for('my_bookings') }}">My Bookings</a>
         {% if user %}
         <span class="text-warning fw-bold">{{ user }}</span>
+        <a class="nav-link text-white" href="{{ url_for('user_messages') }}">Messages</a>
+        <a class="nav-link text-white" href="{{ url_for('profile') }}">Profile</a>
         <a class="btn btn-outline-warning fw-bold px-4" href="{{ url_for('logout') }}">Logout</a>
         {% else %}
         <a class="nav-link text-white" href="{{ url_for('login') }}">Login</a>
@@ -45,11 +47,22 @@
             <img src="{{ car.image }}" alt="{{ car.name }}" class="w-100" style="height:210px;object-fit:cover;cursor:pointer;">
           </a>
           <div class="p-3">
-            <a href="{{ url_for('car_detail', car_id=car.id) }}" class="text-decoration-none text-white">
-              <h5 class="fw-bold mb-1">{{ car.name }}</h5>
-            </a>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <a href="{{ url_for('car_detail', car_id=car.id) }}" class="text-decoration-none text-white">
+                <h5 class="fw-bold mb-0">{{ car.name }}</h5>
+              </a>
+              {% if car.get('available', True) %}
+              <span class="badge bg-success">Available</span>
+              {% else %}
+              <span class="badge bg-danger">Unavailable</span>
+              {% endif %}
+            </div>
             <p class="text-warning fw-bold mb-3">{{ car.price }}</p>
-            <a href="{{ url_for('login') if not user else '#' }}" class="btn btn-warning w-100 fw-bold">Book Now</a>
+            {% if car.get('available', True) %}
+            <a href="{{ url_for('car_detail', car_id=car.id) }}" class="btn btn-warning w-100 fw-bold">Book Now</a>
+            {% else %}
+            <button class="btn btn-secondary w-100 fw-bold" disabled>Unavailable</button>
+            {% endif %}
           </div>
         </div>
       </div>

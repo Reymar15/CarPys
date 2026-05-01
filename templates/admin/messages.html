@@ -1,0 +1,47 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<h2 class="fw-bold mb-4">User Messages</h2>
+{% if msgs %}
+<div class="table-responsive">
+  <table class="table table-dark table-bordered table-hover">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>User</th>
+        <th>Subject</th>
+        <th>Message</th>
+        <th>Date</th>
+        <th>Reply</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in msgs %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td class="text-warning">{{ m.username }}</td>
+        <td class="fw-bold">{{ m.subject }}</td>
+        <td>{{ m.body }}</td>
+        <td><small class="text-secondary">{{ m.created_at[:10] if m.created_at else '' }}</small></td>
+        <td style="min-width:260px;">
+          {% if m.reply %}
+          <span class="text-success small">{{ m.reply }}</span>
+          <form method="POST" action="{{ url_for('admin_reply_message', msg_id=m.id) }}" class="mt-2 d-flex gap-2">
+            <input type="text" name="reply" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Update reply" required>
+            <button type="submit" class="btn btn-sm btn-outline-warning fw-bold">Update</button>
+          </form>
+          {% else %}
+          <form method="POST" action="{{ url_for('admin_reply_message', msg_id=m.id) }}" class="d-flex gap-2">
+            <input type="text" name="reply" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Write reply..." required>
+            <button type="submit" class="btn btn-sm btn-warning fw-bold">Reply</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-secondary">No messages yet.</p>
+{% endif %}
+{% endblock %}

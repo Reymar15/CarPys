@@ -305,6 +305,8 @@ def cars():
 @app.route("/brand/<brand_name>")
 def brand(brand_name):
     selected = ALL_BRAND_CARS.get(brand_name, [])
+    for car in selected:
+        car.setdefault("available", True)
     return render_template("brand.html", brand_name=brand_name, cars=selected, user=session.get("user"))
 
 @app.route("/car/<car_id>")
@@ -317,6 +319,7 @@ def car_detail(car_id):
                 break
     if not car:
         return redirect(url_for("cars"))
+    car.setdefault("available", True)
     return render_template("car_detail.html", car=car, user=session.get("user"))
 
 @app.route("/book/<car_id>", methods=["GET", "POST"])
@@ -402,6 +405,51 @@ def confirm_pickup(booking_id):
         mail.send(msg)
     return redirect(url_for("my_bookings"))
 
+@app.route("/profile", methods=["GET", "POST"])
+def profile():
+    if not session.get("user"):
+        return redirect(url_for("login", next=url_for("profile")))
+    error = None
+    message = None
+    res = supabase_request("GET", "profiles", params={"username": f"eq.{session['user']}"})
+    user_data = res.json()[0] if res and res.status_code < 400 and res.json() else {}
+    if request.method == "POST":
+        new_username = request.form["username"].strip()
+        new_email = request.form["email"].strip()
+        new_password = request.form.get("password", "").strip()
+        update_payload = {"username": new_username, "email": new_email}
+        if new_password:
+            update_payload["password"] = hash_password(new_password)
+        upd = supabase_request("PATCH", "profiles", params={"username": f"eq.{session['user']}"}, json=update_payload)
+        if upd and upd.status_code < 400:
+            session["user"] = new_username
+            session["email"] = new_email
+            message = "Profile updated successfully."
+            user_data.update(update_payload)
+        else:
+            error = "Could not update profile."
+    return render_template("profile.html", user=session.get("user"), user_data=user_data, error=error, message=message)
+
+@app.route("/messages", methods=["GET", "POST"])
+def user_messages():
+    if not session.get("user"):
+        return redirect(url_for("login", next=url_for("user_messages")))
+    sent_message = None
+    if request.method == "POST":
+        subject = request.form["subject"].strip()
+        body = request.form["body"].strip()
+        supabase_request("POST", "messages", json={
+            "username": session["user"],
+            "user_email": session.get("email", ""),
+            "subject": subject,
+            "body": body,
+            "reply": None
+        })
+        sent_message = "Your message has been sent to the admin."
+    res = supabase_request("GET", "messages", params={"username": f"eq.{session['user']}", "order": "created_at.desc"})
+    msgs = res.json() if res and res.status_code < 400 else []
+    return render_template("messages.html", user=session.get("user"), msgs=msgs, sent_message=sent_message)
+
 @app.route("/logout")
 def logout():
     session.pop("user", None)
@@ -449,7 +497,9 @@ def admin_dashboard():
     total_cars = sum(len(v) for v in ALL_BRAND_CARS.values())
     total_users = len(httpx.get(db("profiles"), headers=headers(), params={"select": "id"}).json())
     total_bookings = len(httpx.get(db("bookings"), headers=headers(), params={"select": "id"}).json())
-    return render_template("admin/dashboard.html", total_cars=total_cars, total_users=total_users, total_bookings=total_bookings)
+    msgs_res = supabase_request("GET", "messages", params={"select": "id", "reply": "is.null"})
+    unread_messages = len(msgs_res.json()) if msgs_res and msgs_res.status_code < 400 else 0
+    return render_template("admin/dashboard.html", total_cars=total_cars, total_users=total_users, total_bookings=total_bookings, unread_messages=unread_messages)
 
 @app.route("/admin/cars")
 @admin_required
@@ -487,6 +537,30 @@ def admin_confirm_dropoff(booking_id):
         json={"status": "Drop-off Confirmed"}
     )
     return redirect(url_for("admin_bookings"))
+
+@app.route("/admin/cars/toggle-availability/<car_id>", methods=["POST"])
+@admin_required
+def admin_toggle_availability(car_id):
+    for brand in ALL_BRAND_CARS:
+        for car in ALL_BRAND_CARS[brand]:
+            if car["id"] == car_id:
+                car["available"] = not car.get("available", True)
+                break
+    return redirect(url_for("admin_cars"))
+
+@app.route("/admin/messages")
+@admin_required
+def admin_messages():
+    res = supabase_request("GET", "messages", params={"order": "created_at.desc"})
+    msgs = res.json() if res and res.status_code < 400 else []
+    return render_template("admin/messages.html", msgs=msgs)
+
+@app.route("/admin/messages/<int:msg_id>/reply", methods=["POST"])
+@admin_required
+def admin_reply_message(msg_id):
+    reply = request.form["reply"].strip()
+    supabase_request("PATCH", "messages", params={"id": f"eq.{msg_id}"}, json={"reply": reply})
+    return redirect(url_for("admin_messages"))
 
 if __name__ == "__main__":
     app.run(debug=True)
