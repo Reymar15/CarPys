@@ -1,17 +1,18 @@
 {% extends "admin/base.html" %}
 {% block content %}
-<h2 class="fw-bold mb-4">All Bookings</h2>
+<div class="page-title">Bookings <span>All</span></div>
+
 {% if all_bookings %}
 <div class="table-responsive">
-  <table class="table table-dark table-bordered table-hover">
+  <table class="table table-dark table-bordered table-hover align-middle">
     <thead>
       <tr>
         <th>#</th>
-        <th>Image</th>
         <th>Car</th>
         <th>User</th>
         <th>Pick-up</th>
         <th>Drop-off</th>
+        <th>Option</th>
         <th>Price</th>
         <th>Status</th>
         <th>Action</th>
@@ -20,23 +21,44 @@
     <tbody>
       {% for user, b in all_bookings %}
       <tr>
-        <td>{{ loop.index }}</td>
-        <td><img src="{{ b.car.image }}" style="width:80px;height:50px;object-fit:cover;border-radius:4px;"></td>
-        <td>{{ b.car.name }}</td>
-        <td class="text-warning">{{ user }}</td>
-        <td>{{ b.pickup }}</td>
-        <td>{{ b.dropoff }}</td>
+        <td class="text-secondary">{{ loop.index }}</td>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <img src="{{ b.car.image }}" style="width:64px;height:42px;object-fit:cover;border-radius:6px;flex-shrink:0;">
+            <span class="fw-bold" style="font-size:13px;">{{ b.car.name }}</span>
+          </div>
+        </td>
+        <td><span class="text-warning fw-bold">{{ user }}</span></td>
+        <td>{{ b.pickup or '—' }}</td>
+        <td>{{ b.dropoff or '—' }}</td>
+        <td>
+          {% if b.delivery_option == 'Drop-off (Delivery)' %}
+          <span class="badge bg-info text-dark">🚚 Delivery</span>
+          {% else %}
+          <span class="badge bg-secondary">🏢 Self Pick-up</span>
+          {% endif %}
+        </td>
         <td class="text-warning fw-bold">{{ b.car.price }}</td>
-        <td><span class="badge {{ 'bg-warning text-dark' if b.status in ['Pending Pickup', 'Confirmed'] else 'bg-info text-dark' if b.status == 'Pickup Confirmed' else 'bg-success' }}">{{ b.status }}</span></td>
+        <td>
+          {% if b.status == 'Pending Pickup' or b.status == 'Confirmed' %}
+          <span class="badge bg-warning text-dark">⏳ {{ b.status }}</span>
+          {% elif b.status == 'Pickup Confirmed' %}
+          <span class="badge bg-info text-dark">🚗 Picked Up</span>
+          {% elif b.status == 'Drop-off Confirmed' %}
+          <span class="badge bg-success">✅ Completed</span>
+          {% else %}
+          <span class="badge bg-secondary">{{ b.status }}</span>
+          {% endif %}
+        </td>
         <td>
           {% if b.status == 'Pickup Confirmed' %}
           <form method="POST" action="{{ url_for('admin_confirm_dropoff', booking_id=b.id) }}">
             <button type="submit" class="btn btn-sm btn-warning fw-bold">Confirm Drop-off</button>
           </form>
           {% elif b.status in ['Pending Pickup', 'Confirmed'] %}
-          <span class="text-secondary small">Waiting for pick-up</span>
+          <span class="text-secondary small">Awaiting pick-up</span>
           {% else %}
-          <span class="text-success small">Completed</span>
+          <span class="text-success small">✓ Done</span>
           {% endif %}
         </td>
       </tr>
@@ -44,7 +66,8 @@
     </tbody>
   </table>
 </div>
+<p class="text-secondary small mt-2">{{ all_bookings | length }} booking{{ 's' if all_bookings | length != 1 }}</p>
 {% else %}
-<p class="text-secondary">No bookings yet.</p>
+<div class="text-secondary py-4">No bookings yet.</div>
 {% endif %}
 {% endblock %}

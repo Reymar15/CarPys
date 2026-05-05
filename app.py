@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, m
 from functools import wraps
 from dotenv import load_dotenv
 from flask_mail import Mail, Message
-import os, httpx, hashlib, secrets, datetime
+import os, httpx, hashlib, secrets, datetime, base64
 
 load_dotenv()
 
@@ -46,6 +46,23 @@ def supabase_request(method, table, **kwargs):
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
+
+def get_availability():
+    """Returns {car_id: bool} from Supabase. Falls back to empty dict on error."""
+    res = supabase_request("GET", "car_availability", params={"select": "car_id,available"})
+    if res and res.status_code < 400:
+        return {row["car_id"]: row["available"] for row in res.json()}
+    return {}
+
+def apply_availability(cars_list, avail_map):
+    """Merges DB availability into a list of car dicts in-place."""
+    for car in cars_list:
+        if car["id"] in avail_map:
+            car["available"] = avail_map[car["id"]]
+        else:
+            car.setdefault("available", True)
+    return cars_list
+
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
@@ -304,9 +321,8 @@ def cars():
 
 @app.route("/brand/<brand_name>")
 def brand(brand_name):
-    selected = ALL_BRAND_CARS.get(brand_name, [])
-    for car in selected:
-        car.setdefault("available", True)
+    selected = [dict(c) for c in ALL_BRAND_CARS.get(brand_name, [])]
+    apply_availability(selected, get_availability())
     return render_template("brand.html", brand_name=brand_name, cars=selected, user=session.get("user"))
 
 @app.route("/car/<car_id>")
@@ -315,11 +331,12 @@ def car_detail(car_id):
     for brand_cars in ALL_BRAND_CARS.values():
         for c in brand_cars:
             if c["id"] == car_id:
-                car = c
+                car = dict(c)
                 break
     if not car:
         return redirect(url_for("cars"))
-    car.setdefault("available", True)
+    avail_map = get_availability()
+    car["available"] = avail_map.get(car["id"], True)
     return render_template("car_detail.html", car=car, user=session.get("user"))
 
 @app.route("/book/<car_id>", methods=["GET", "POST"])
@@ -330,13 +347,18 @@ def book(car_id):
     for brand_cars in ALL_BRAND_CARS.values():
         for c in brand_cars:
             if c["id"] == car_id:
-                car = c
+                car = dict(c)
                 break
     if not car:
         return redirect(url_for("cars"))
+    avail_map = get_availability()
+    car["available"] = avail_map.get(car["id"], True)
+    if not car["available"]:
+        return redirect(url_for("car_detail", car_id=car_id))
     if request.method == "POST":
         pickup = request.form["pickup"]
         dropoff = request.form["dropoff"]
+        delivery_option = request.form.get("delivery_option", "Self Pick-up")
         httpx.post(db("bookings"), headers=headers(), json={
             "user_email": session.get("email"),
             "username": session["user"],
@@ -346,6 +368,7 @@ def book(car_id):
             "car_price": car["price"],
             "pickup_date": pickup,
             "dropoff_date": dropoff,
+            "delivery_option": delivery_option,
             "status": "Pending Pickup"
         })
         return redirect(url_for("my_bookings"))
@@ -360,7 +383,7 @@ def my_bookings():
         return render_template("bookings.html", bookings=[], user=session.get("user"), error="Could not connect to Supabase. Please try again.")
     if res.status_code >= 400:
         return render_template("bookings.html", bookings=[], user=session.get("user"), error=f"Could not load bookings: {res.text}")
-    user_bookings = [{"id": b["id"], "car": {"name": b["car_name"], "image": b["car_image"], "price": b["car_price"]}, "pickup": b["pickup_date"], "dropoff": b["dropoff_date"], "status": b["status"]} for b in res.json()]
+    user_bookings = [{"id": b["id"], "car": {"name": b["car_name"], "image": b["car_image"], "price": b["car_price"]}, "pickup": b["pickup_date"], "dropoff": b["dropoff_date"], "delivery_option": b.get("delivery_option", "Self Pick-up"), "status": b["status"]} for b in res.json()]
     return render_template("bookings.html", bookings=user_bookings, user=session.get("user"))
 
 @app.route("/bookings/<booking_id>/confirm-pickup", methods=["POST"])
@@ -420,6 +443,26 @@ def profile():
         update_payload = {"username": new_username, "email": new_email}
         if new_password:
             update_payload["password"] = hash_password(new_password)
+        avatar_file = request.files.get("avatar")
+        if avatar_file and avatar_file.filename:
+            ext = avatar_file.filename.rsplit(".", 1)[-1].lower()
+            file_bytes = avatar_file.read()
+            storage_path = f"avatars/{session['user']}.{ext}"
+            upload_headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": avatar_file.content_type,
+                "x-upsert": "true"
+            }
+            upload_res = httpx.post(
+                f"{SUPABASE_URL}/storage/v1/object/{storage_path}",
+                headers=upload_headers,
+                content=file_bytes,
+                timeout=SUPABASE_TIMEOUT
+            )
+            if upload_res.status_code < 300:
+                avatar_url = f"{SUPABASE_URL}/storage/v1/object/public/{storage_path}"
+                update_payload["avatar_url"] = avatar_url
         upd = supabase_request("PATCH", "profiles", params={"username": f"eq.{session['user']}"}, json=update_payload)
         if upd and upd.status_code < 400:
             session["user"] = new_username
@@ -434,21 +477,39 @@ def profile():
 def user_messages():
     if not session.get("user"):
         return redirect(url_for("login", next=url_for("user_messages")))
-    sent_message = None
     if request.method == "POST":
-        subject = request.form["subject"].strip()
         body = request.form["body"].strip()
-        supabase_request("POST", "messages", json={
-            "username": session["user"],
-            "user_email": session.get("email", ""),
-            "subject": subject,
-            "body": body,
-            "reply": None
-        })
-        sent_message = "Your message has been sent to the admin."
-    res = supabase_request("GET", "messages", params={"username": f"eq.{session['user']}", "order": "created_at.desc"})
+        if body:
+            supabase_request("POST", "messages", json={
+                "username": session["user"],
+                "user_email": session.get("email", ""),
+                "subject": "chat",
+                "body": body,
+                "reply": None,
+                "sender_id": session["user"],
+                "receiver_id": "admin",
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            })
+        if request.headers.get("X-Requested-With") == "fetch":
+            from flask import jsonify
+            return jsonify({"ok": True})
+        return redirect(url_for("user_messages"))
+    res = supabase_request("GET", "messages", params={"username": f"eq.{session['user']}", "order": "created_at.asc"})
     msgs = res.json() if res and res.status_code < 400 else []
-    return render_template("messages.html", user=session.get("user"), msgs=msgs, sent_message=sent_message)
+    return render_template("messages.html", user=session.get("user"), msgs=msgs)
+
+@app.route("/messages/poll")
+def user_messages_poll():
+    from flask import jsonify
+    if not session.get("user"):
+        return jsonify([]), 401
+    after = request.args.get("after", "")
+    params = {"username": f"eq.{session['user']}", "order": "created_at.asc"}
+    if after:
+        params["created_at"] = f"gt.{after}"
+    res = supabase_request("GET", "messages", params=params)
+    msgs = res.json() if res and res.status_code < 400 else []
+    return jsonify(msgs)
 
 @app.route("/logout")
 def logout():
@@ -495,16 +556,34 @@ def admin_logout():
 @admin_required
 def admin_dashboard():
     total_cars = sum(len(v) for v in ALL_BRAND_CARS.values())
-    total_users = len(httpx.get(db("profiles"), headers=headers(), params={"select": "id"}).json())
-    total_bookings = len(httpx.get(db("bookings"), headers=headers(), params={"select": "id"}).json())
-    msgs_res = supabase_request("GET", "messages", params={"select": "id", "reply": "is.null"})
-    unread_messages = len(msgs_res.json()) if msgs_res and msgs_res.status_code < 400 else 0
+    try:
+        total_users = len(httpx.get(db("profiles"), headers=headers(), params={"select": "id"}, timeout=SUPABASE_TIMEOUT).json())
+    except Exception:
+        total_users = 0
+    try:
+        total_bookings = len(httpx.get(db("bookings"), headers=headers(), params={"select": "id"}, timeout=SUPABASE_TIMEOUT).json())
+    except Exception:
+        total_bookings = 0
+    msgs_res = supabase_request("GET", "messages", params={"select": "id,sender_id"})
+    if msgs_res and msgs_res.status_code < 400:
+        all_msgs = msgs_res.json()
+        user_senders = {m["sender_id"] for m in all_msgs if m.get("sender_id") and m["sender_id"] != "admin"}
+        admin_replied = {m.get("receiver_id") for m in all_msgs if m.get("sender_id") == "admin" and m.get("receiver_id")}
+        unread_messages = len(user_senders - admin_replied)
+    else:
+        unread_messages = 0
     return render_template("admin/dashboard.html", total_cars=total_cars, total_users=total_users, total_bookings=total_bookings, unread_messages=unread_messages)
 
 @app.route("/admin/cars")
 @admin_required
 def admin_cars():
-    all_cars = [(brand, car) for brand, cars in ALL_BRAND_CARS.items() for car in cars]
+    avail_map = get_availability()
+    all_cars = []
+    for brand_name, cars in ALL_BRAND_CARS.items():
+        for car in cars:
+            c = dict(car)
+            c["available"] = avail_map.get(c["id"], True)
+            all_cars.append((brand_name, c))
     return render_template("admin/cars.html", all_cars=all_cars)
 
 @app.route("/admin/cars/delete/<car_id>")
@@ -517,14 +596,15 @@ def admin_delete_car(car_id):
 @app.route("/admin/users")
 @admin_required
 def admin_users():
-    users_data = httpx.get(db("profiles"), headers=headers(), params={"select": "username,email,created_at", "order": "created_at.desc"}).json()
+    res = supabase_request("GET", "profiles", params={"select": "username,email,created_at,avatar_url", "order": "created_at.desc"})
+    users_data = res.json() if res and res.status_code < 400 else []
     return render_template("admin/users.html", users=users_data)
 
 @app.route("/admin/bookings")
 @admin_required
 def admin_bookings():
     data = httpx.get(db("bookings"), headers=headers(), params={"order": "created_at.desc"}).json()
-    all_bookings = [(b["username"], {"id": b["id"], "car": {"name": b["car_name"], "image": b["car_image"], "price": b["car_price"]}, "pickup": b["pickup_date"], "dropoff": b["dropoff_date"], "status": b["status"]}) for b in data]
+    all_bookings = [(b["username"], {"id": b["id"], "car": {"name": b["car_name"], "image": b["car_image"], "price": b["car_price"]}, "pickup": b["pickup_date"], "dropoff": b["dropoff_date"], "delivery_option": b.get("delivery_option", "Self Pick-up"), "status": b["status"]}) for b in data]
     return render_template("admin/bookings.html", all_bookings=all_bookings)
 
 @app.route("/admin/bookings/<booking_id>/confirm-dropoff", methods=["POST"])
@@ -541,26 +621,85 @@ def admin_confirm_dropoff(booking_id):
 @app.route("/admin/cars/toggle-availability/<car_id>", methods=["POST"])
 @admin_required
 def admin_toggle_availability(car_id):
-    for brand in ALL_BRAND_CARS:
-        for car in ALL_BRAND_CARS[brand]:
-            if car["id"] == car_id:
-                car["available"] = not car.get("available", True)
-                break
+    from flask import jsonify
+    avail_map = get_availability()
+    new_state = not avail_map.get(car_id, True)
+    existing = supabase_request("GET", "car_availability", params={"car_id": f"eq.{car_id}"})
+    if existing and existing.status_code < 400 and existing.json():
+        supabase_request("PATCH", "car_availability", params={"car_id": f"eq.{car_id}"}, json={"available": new_state})
+    else:
+        supabase_request("POST", "car_availability", json={"car_id": car_id, "available": new_state})
+    if request.headers.get("X-Requested-With") == "fetch":
+        return jsonify({"available": new_state})
     return redirect(url_for("admin_cars"))
 
-@app.route("/admin/messages")
+@app.route("/admin/cars/availability-status")
 @admin_required
-def admin_messages():
-    res = supabase_request("GET", "messages", params={"order": "created_at.desc"})
-    msgs = res.json() if res and res.status_code < 400 else []
-    return render_template("admin/messages.html", msgs=msgs)
+def admin_availability_status():
+    from flask import jsonify
+    return jsonify(get_availability())
 
-@app.route("/admin/messages/<int:msg_id>/reply", methods=["POST"])
+@app.route("/admin/messages/users")
 @admin_required
-def admin_reply_message(msg_id):
+def admin_messages_users():
+    from flask import jsonify
+    res = supabase_request("GET", "messages", params={"select": "username", "order": "created_at.desc"})
+    if res and res.status_code < 400:
+        seen = []
+        for m in res.json():
+            u = m.get("username")
+            if u and u not in seen:
+                seen.append(u)
+        return jsonify(seen)
+    return jsonify([])
+
+@app.route("/admin/messages")
+@app.route("/admin/messages/<chat_user>")
+@admin_required
+def admin_messages(chat_user=None):
+    res = supabase_request("GET", "messages", params={"order": "created_at.asc"})
+    all_msgs = res.json() if res and res.status_code < 400 else []
+    seen = {}
+    for m in reversed(all_msgs):
+        u = m.get("username")
+        if u and u not in seen:
+            seen[u] = m
+    user_list = list(seen.keys())
+    active_user = chat_user or (user_list[0] if user_list else None)
+    thread = [m for m in all_msgs if m.get("username") == active_user] if active_user else []
+    return render_template("admin/messages.html", user_list=user_list, thread=thread, active_user=active_user)
+
+@app.route("/admin/messages/<chat_user>/poll")
+@admin_required
+def admin_messages_poll(chat_user):
+    from flask import jsonify
+    after = request.args.get("after", "")
+    params = {"username": f"eq.{chat_user}", "order": "created_at.asc"}
+    if after:
+        params["created_at"] = f"gt.{after}"
+    res = supabase_request("GET", "messages", params=params)
+    msgs = res.json() if res and res.status_code < 400 else []
+    return jsonify(msgs)
+
+@app.route("/admin/messages/<chat_user>/reply", methods=["POST"])
+@admin_required
+def admin_reply_message(chat_user):
     reply = request.form["reply"].strip()
-    supabase_request("PATCH", "messages", params={"id": f"eq.{msg_id}"}, json={"reply": reply})
-    return redirect(url_for("admin_messages"))
+    if reply:
+        supabase_request("POST", "messages", json={
+            "username": chat_user,
+            "user_email": "",
+            "subject": "chat",
+            "body": reply,
+            "reply": None,
+            "sender_id": "admin",
+            "receiver_id": chat_user,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        })
+    if request.headers.get("X-Requested-With") == "fetch":
+        from flask import jsonify
+        return jsonify({"ok": True})
+    return redirect(url_for("admin_messages", chat_user=chat_user))
 
 if __name__ == "__main__":
     app.run(debug=True)

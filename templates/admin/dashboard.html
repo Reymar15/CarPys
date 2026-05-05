@@ -1,36 +1,56 @@
 {% extends "admin/base.html" %}
 {% block content %}
-<h2 class="fw-bold mb-4">Dashboard</h2>
-<div class="row g-4 mb-5">
+<div class="page-title">Dashboard <span>Overview</span></div>
+
+<div class="row g-3 mb-5">
   <div class="col-md-3">
-    <div class="stat-card">
-      <p class="text-secondary mb-1">Total Cars</p>
-      <h2>{{ total_cars }}</h2>
+    <div class="stat-card d-flex justify-content-between align-items-center">
+      <div>
+        <div class="label">Total Cars</div>
+        <div class="value">{{ total_cars }}</div>
+      </div>
+      <div class="icon">🚗</div>
     </div>
   </div>
   <div class="col-md-3">
-    <div class="stat-card">
-      <p class="text-secondary mb-1">Total Users</p>
-      <h2>{{ total_users }}</h2>
+    <div class="stat-card d-flex justify-content-between align-items-center">
+      <div>
+        <div class="label">Total Users</div>
+        <div class="value">{{ total_users }}</div>
+      </div>
+      <div class="icon">👥</div>
     </div>
   </div>
   <div class="col-md-3">
-    <div class="stat-card">
-      <p class="text-secondary mb-1">Total Bookings</p>
-      <h2>{{ total_bookings }}</h2>
+    <div class="stat-card d-flex justify-content-between align-items-center">
+      <div>
+        <div class="label">Total Bookings</div>
+        <div class="value">{{ total_bookings }}</div>
+      </div>
+      <div class="icon">📋</div>
     </div>
   </div>
   <div class="col-md-3">
-    <div class="stat-card">
-      <p class="text-secondary mb-1">Unread Messages</p>
-      <h2 class="{{ 'text-danger' if unread_messages > 0 else '' }}">{{ unread_messages }}</h2>
-    </div>
+    <a href="{{ url_for('admin_messages') }}" class="text-decoration-none">
+      <div class="stat-card d-flex justify-content-between align-items-center" style="{{ 'border-color:#dc3545;' if unread_messages > 0 else '' }}">
+        <div>
+          <div class="label">Unread Messages</div>
+          <div class="value" style="{{ 'color:#dc3545;' if unread_messages > 0 else '' }}">{{ unread_messages }}</div>
+        </div>
+        <div class="icon">💬</div>
+      </div>
+    </a>
   </div>
 </div>
-<div class="d-flex gap-3 flex-wrap">
-  <a href="{{ url_for('admin_cars') }}" class="btn btn-warning fw-bold px-4">Manage Cars</a>
-  <a href="{{ url_for('admin_bookings') }}" class="btn btn-outline-warning fw-bold px-4">View Bookings</a>
-  <a href="{{ url_for('admin_users') }}" class="btn btn-outline-secondary fw-bold px-4">View Users</a>
-  <a href="{{ url_for('admin_messages') }}" class="btn btn-outline-danger fw-bold px-4">Messages {% if unread_messages > 0 %}<span class="badge bg-danger">{{ unread_messages }}</span>{% endif %}</a>
+
+<div class="page-title" style="font-size:16px;">Quick <span>Actions</span></div>
+<div class="d-flex gap-2 flex-wrap">
+  <a href="{{ url_for('admin_cars') }}" class="btn btn-warning fw-bold px-4">🚗 Manage Cars</a>
+  <a href="{{ url_for('admin_bookings') }}" class="btn btn-outline-warning fw-bold px-4">📋 View Bookings</a>
+  <a href="{{ url_for('admin_users') }}" class="btn btn-outline-secondary fw-bold px-4">👥 View Users</a>
+  <a href="{{ url_for('admin_messages') }}" class="btn fw-bold px-4 {{ 'btn-danger' if unread_messages > 0 else 'btn-outline-danger' }}">
+    💬 Messages{% if unread_messages > 0 %} <span class="badge bg-light text-danger ms-1">{{ unread_messages }}</span>{% endif %}
+  </a>
+  <a href="{{ url_for('admin_create_account') }}" class="btn btn-outline-light fw-bold px-4">➕ Create Admin</a>
 </div>
 {% endblock %}

@@ -4,6 +4,14 @@
   <title>My Profile – DriveLux</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .avatar-wrap { position: relative; width: 110px; height: 110px; }
+    .avatar-wrap img { width: 110px; height: 110px; object-fit: cover; border-radius: 50%; border: 3px solid #ffc107; }
+    .avatar-placeholder { width: 110px; height: 110px; border-radius: 50%; background: #333; border: 3px solid #ffc107; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: #ffc107; font-weight: bold; }
+    .avatar-edit-btn { position: absolute; bottom: 4px; right: 4px; background: #ffc107; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #333; }
+    .info-row:last-child { border-bottom: none; }
+  </style>
 </head>
 <body>
 
@@ -22,7 +30,7 @@
     </div>
   </nav>
 
-  <div class="container py-5" style="max-width:560px;">
+  <div class="container py-5" style="max-width:620px;">
     <h2 class="fw-bold mb-4 border-start border-warning border-4 ps-3">My <span class="text-warning">Profile</span></h2>
 
     {% if message %}
@@ -32,8 +40,66 @@
     <div class="alert alert-danger py-2">{{ error }}</div>
     {% endif %}
 
-    <div class="auth-box p-4 rounded">
-      <form method="POST">
+    <!-- PROFILE CARD (view) -->
+    <div class="auth-box p-4 rounded mb-4" id="view-section">
+      <div class="d-flex align-items-center gap-4 mb-4">
+        <div class="avatar-wrap">
+          {% if user_data.get('avatar_url') %}
+          <img src="{{ user_data.avatar_url }}" alt="Avatar" id="avatar-preview">
+          {% else %}
+          <div class="avatar-placeholder" id="avatar-preview-placeholder">{{ user_data.get('username', '?')[0].upper() }}</div>
+          {% endif %}
+        </div>
+        <div>
+          <h4 class="fw-bold mb-0">{{ user_data.get('username', user) }}</h4>
+          <p class="text-secondary mb-0">{{ user_data.get('email', '') }}</p>
+          <span class="badge bg-warning text-dark mt-1">Member</span>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="info-row">
+          <span class="text-secondary">Username</span>
+          <span class="fw-bold">{{ user_data.get('username', user) }}</span>
+        </div>
+        <div class="info-row">
+          <span class="text-secondary">Email</span>
+          <span class="fw-bold">{{ user_data.get('email', '') }}</span>
+        </div>
+        <div class="info-row">
+          <span class="text-secondary">Account Type</span>
+          <span class="fw-bold">{{ 'Admin' if user_data.get('verified') else 'User' }}</span>
+        </div>
+      </div>
+
+      <button class="btn btn-warning w-100 fw-bold" onclick="toggleEdit(true)">Edit Profile</button>
+    </div>
+
+    <!-- EDIT FORM (hidden by default) -->
+    <div class="auth-box p-4 rounded" id="edit-section" style="display:none;">
+      <h5 class="fw-bold mb-3 text-warning">Edit Profile</h5>
+      <form method="POST" enctype="multipart/form-data">
+
+        <!-- Avatar upload -->
+        <div class="d-flex align-items-center gap-3 mb-4">
+          <div class="avatar-wrap">
+            {% if user_data.get('avatar_url') %}
+            <img src="{{ user_data.avatar_url }}" alt="Avatar" id="edit-avatar-img" style="width:110px;height:110px;object-fit:cover;border-radius:50%;border:3px solid #ffc107;">
+            {% else %}
+            <div class="avatar-placeholder" id="edit-avatar-placeholder">{{ user_data.get('username', '?')[0].upper() }}</div>
+            <img src="" alt="Avatar" id="edit-avatar-img" style="width:110px;height:110px;object-fit:cover;border-radius:50%;border:3px solid #ffc107;display:none;">
+            {% endif %}
+            <button type="button" class="avatar-edit-btn" onclick="document.getElementById('avatar-input').click()" title="Change photo">
+              <svg width="14" height="14" fill="black" viewBox="0 0 16 16"><path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5 0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11z"/></svg>
+            </button>
+          </div>
+          <div>
+            <p class="text-secondary small mb-1">JPG, PNG up to 2MB</p>
+            <input type="file" name="avatar" id="avatar-input" accept="image/*" class="d-none" onchange="previewAvatar(this)">
+            <button type="button" class="btn btn-outline-warning btn-sm" onclick="document.getElementById('avatar-input').click()">Choose Photo</button>
+          </div>
+        </div>
+
         <div class="mb-3">
           <label class="form-label text-secondary">Username</label>
           <input type="text" name="username" class="form-control bg-dark text-white border-secondary" value="{{ user_data.get('username', '') }}" required>
@@ -46,7 +112,10 @@
           <label class="form-label text-secondary">New Password <span class="text-secondary small">(leave blank to keep current)</span></label>
           <input type="password" name="password" class="form-control bg-dark text-white border-secondary">
         </div>
-        <button type="submit" class="btn btn-warning w-100 fw-bold">Update Profile</button>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-warning fw-bold flex-grow-1">Save Changes</button>
+          <button type="button" class="btn btn-outline-secondary fw-bold" onclick="toggleEdit(false)">Cancel</button>
+        </div>
       </form>
     </div>
   </div>
@@ -56,5 +125,28 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    function toggleEdit(show) {
+      document.getElementById('view-section').style.display = show ? 'none' : '';
+      document.getElementById('edit-section').style.display = show ? '' : 'none';
+    }
+
+    function previewAvatar(input) {
+      if (!input.files || !input.files[0]) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = document.getElementById('edit-avatar-img');
+        const placeholder = document.getElementById('edit-avatar-placeholder');
+        img.src = e.target.result;
+        img.style.display = '';
+        if (placeholder) placeholder.style.display = 'none';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+
+    {% if message or error %}
+    toggleEdit({{ 'true' if error else 'false' }});
+    {% endif %}
+  </script>
 </body>
 </html>

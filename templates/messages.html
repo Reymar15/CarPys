@@ -4,6 +4,27 @@
   <title>Messages – DriveLux</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .chat-window {
+      height: 480px; overflow-y: auto; display: flex; flex-direction: column;
+      gap: 10px; padding: 20px; background: #1a1a1a; border-radius: 12px 12px 0 0;
+    }
+    .bubble-wrap { display: flex; flex-direction: column; }
+    .bubble-wrap.sent { align-items: flex-end; }
+    .bubble-wrap.received { align-items: flex-start; }
+    .bubble {
+      max-width: 70%; padding: 10px 14px; border-radius: 18px;
+      font-size: 0.95rem; line-height: 1.4; word-break: break-word;
+    }
+    .bubble.sent { background: #ffc107; color: #000; border-bottom-right-radius: 4px; }
+    .bubble.received { background: #2c2c2c; color: #fff; border-bottom-left-radius: 4px; }
+    .bubble-time { font-size: 0.72rem; color: #666; margin-top: 3px; padding: 0 4px; }
+    .chat-input-bar { background: #222; border-radius: 0 0 12px 12px; padding: 12px 16px; border-top: 1px solid #333; }
+    .chat-header { background: #222; border-radius: 12px 12px 0 0; padding: 14px 20px; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 12px; }
+    .admin-avatar { width: 40px; height: 40px; border-radius: 50%; background: #ffc107; color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; }
+    .online-dot { width: 9px; height: 9px; background: #28a745; border-radius: 50%; display: inline-block; margin-left: 4px; }
+    .empty-chat { flex: 1; display: flex; align-items: center; justify-content: center; color: #555; }
+  </style>
 </head>
 <body>
 
@@ -22,55 +43,39 @@
     </div>
   </nav>
 
-  <div class="container-fluid px-5 py-5">
+  <div class="container py-5" style="max-width:700px;">
     <h2 class="fw-bold mb-4 border-start border-warning border-4 ps-3">Messages & <span class="text-warning">Support</span></h2>
 
-    {% if sent_message %}
-    <div class="alert alert-success py-2">{{ sent_message }}</div>
-    {% endif %}
+    <div class="chat-header">
+      <div class="admin-avatar">A</div>
+      <div>
+        <div class="fw-bold text-white">DriveLux Support <span class="online-dot"></span></div>
+        <small class="text-secondary">Admin · Auto-refreshing</small>
+      </div>
+    </div>
 
-    <div class="row g-4">
-      <div class="col-md-5">
-        <div class="auth-box p-4 rounded">
-          <h5 class="fw-bold mb-3">Send a Message</h5>
-          <form method="POST">
-            <div class="mb-3">
-              <label class="form-label text-secondary">Subject</label>
-              <input type="text" name="subject" class="form-control bg-dark text-white border-secondary" required>
-            </div>
-            <div class="mb-3">
-              <label class="form-label text-secondary">Message</label>
-              <textarea name="body" rows="5" class="form-control bg-dark text-white border-secondary" required></textarea>
-            </div>
-            <button type="submit" class="btn btn-warning w-100 fw-bold">Send Message</button>
-          </form>
+    <div class="chat-window" id="chat-window">
+      {% if msgs %}
+        {% for m in msgs %}
+        {% set is_sent = m.get('sender_id', m.get('username')) != 'admin' %}
+        <div class="bubble-wrap {{ 'sent' if is_sent else 'received' }}">
+          <div class="bubble {{ 'sent' if is_sent else 'received' }}">{{ m.body }}</div>
+          <span class="bubble-time">
+            {% if is_sent %}You{% else %}Admin{% endif %} ·
+            {{ m.get('timestamp', m.get('created_at', ''))[:16].replace('T', ' ') if m.get('timestamp') or m.get('created_at') else '' }}
+          </span>
         </div>
-      </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-chat" id="empty-msg">No messages yet. Say hello! 👋</div>
+      {% endif %}
+    </div>
 
-      <div class="col-md-7">
-        <h5 class="fw-bold mb-3">Your Messages</h5>
-        {% if msgs %}
-          {% for m in msgs %}
-          <div class="auth-box p-3 rounded mb-3">
-            <div class="d-flex justify-content-between align-items-start mb-1">
-              <span class="fw-bold text-warning">{{ m.subject }}</span>
-              <small class="text-secondary">{{ m.created_at[:10] if m.created_at else '' }}</small>
-            </div>
-            <p class="text-white mb-2">{{ m.body }}</p>
-            {% if m.reply %}
-            <div class="border-start border-warning ps-3 mt-2">
-              <small class="text-secondary">Admin Reply:</small>
-              <p class="text-warning mb-0">{{ m.reply }}</p>
-            </div>
-            {% else %}
-            <small class="text-secondary fst-italic">Awaiting reply...</small>
-            {% endif %}
-          </div>
-          {% endfor %}
-        {% else %}
-        <p class="text-secondary">No messages yet.</p>
-        {% endif %}
-      </div>
+    <div class="chat-input-bar">
+      <form id="chat-form" class="d-flex gap-2">
+        <input type="text" name="body" id="msg-input" class="form-control bg-dark text-white border-secondary" placeholder="Type a message..." autocomplete="off" required>
+        <button type="submit" class="btn btn-warning fw-bold px-4">Send</button>
+      </form>
     </div>
   </div>
 
@@ -79,5 +84,75 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const win = document.getElementById('chat-window');
+    const form = document.getElementById('chat-form');
+    const input = document.getElementById('msg-input');
+
+    // Track last message timestamp for polling
+    let lastTimestamp = "{{ msgs[-1].get('created_at', '') if msgs else '' }}";
+
+    function scrollBottom() { win.scrollTop = win.scrollHeight; }
+
+    function formatTime(ts) {
+      if (!ts) return '';
+      return ts.substring(0, 16).replace('T', ' ');
+    }
+
+    function appendBubble(body, isSent, timestamp, label) {
+      const empty = document.getElementById('empty-msg');
+      if (empty) empty.remove();
+
+      const wrap = document.createElement('div');
+      wrap.className = `bubble-wrap ${isSent ? 'sent' : 'received'}`;
+      wrap.innerHTML = `
+        <div class="bubble ${isSent ? 'sent' : 'received'}">${body}</div>
+        <span class="bubble-time">${label} · ${formatTime(timestamp)}</span>
+      `;
+      win.appendChild(wrap);
+      scrollBottom();
+    }
+
+    // AJAX send — no page reload
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const body = input.value.trim();
+      if (!body) return;
+      input.value = '';
+
+      fetch('/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
+        body: `body=${encodeURIComponent(body)}`
+      }).then(() => {
+        // Optimistically show the bubble immediately
+        const now = new Date().toISOString();
+        appendBubble(body, true, now, 'You');
+        lastTimestamp = now;
+      });
+    });
+
+    // Poll every 3 seconds for new messages
+    function poll() {
+      const url = lastTimestamp
+        ? `/messages/poll?after=${encodeURIComponent(lastTimestamp)}`
+        : `/messages/poll`;
+      fetch(url)
+        .then(r => r.json())
+        .then(msgs => {
+          msgs.forEach(m => {
+            const isSent = m.sender_id !== 'admin';
+            if (isSent) return; // user messages shown optimistically on send
+            const ts = m.created_at || m.timestamp || '';
+            appendBubble(m.body, false, ts, 'Admin');
+            if (ts) lastTimestamp = ts;
+          });
+        })
+        .catch(() => {});
+    }
+
+    scrollBottom();
+    setInterval(poll, 3000);
+  </script>
 </body>
 </html>

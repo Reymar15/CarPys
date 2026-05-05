@@ -1,30 +1,43 @@
 {% extends "admin/base.html" %}
 {% block content %}
-<h2 class="fw-bold mb-4">Users</h2>
+<div class="page-title">Users <span>List</span></div>
+
 {% if users %}
 <div class="table-responsive">
-  <table class="table table-dark table-bordered table-hover">
+  <table class="table table-dark table-bordered table-hover align-middle">
     <thead>
       <tr>
         <th>#</th>
-        <th>Username</th>
+        <th>User</th>
         <th>Email</th>
         <th>Joined</th>
       </tr>
     </thead>
     <tbody>
-      {% for user in users %}
+      {% for u in users %}
       <tr>
-        <td>{{ loop.index }}</td>
-        <td>{{ user.username }}</td>
-        <td>{{ user.email }}</td>
-        <td>{{ user.created_at[:10] }}</td>
+        <td class="text-secondary">{{ loop.index }}</td>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            {% if u.get('avatar_url') %}
+            <img src="{{ u.avatar_url }}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
+            {% else %}
+            <div style="width:32px;height:32px;border-radius:50%;background:#ffc107;color:#000;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">
+              {{ u.username[0].upper() if u.username else '?' }}
+            </div>
+            {% endif %}
+            <span class="fw-bold">{{ u.username }}</span>
+          </div>
+        </td>
+        <td class="text-secondary">{{ u.email }}</td>
+        <td class="text-secondary">{{ u.created_at[:10] if u.get('created_at') else '—' }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+<p class="text-secondary small mt-2">{{ users | length }} user{{ 's' if users | length != 1 }}</p>
 {% else %}
-<p class="text-secondary">No users registered yet.</p>
+<div class="text-secondary py-4">No users registered yet.</div>
 {% endif %}
 {% endblock %}

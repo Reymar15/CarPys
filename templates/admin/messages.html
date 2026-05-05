@@ -1,47 +1,177 @@
 {% extends "admin/base.html" %}
 {% block content %}
-<h2 class="fw-bold mb-4">User Messages</h2>
-{% if msgs %}
-<div class="table-responsive">
-  <table class="table table-dark table-bordered table-hover">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>User</th>
-        <th>Subject</th>
-        <th>Message</th>
-        <th>Date</th>
-        <th>Reply</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for m in msgs %}
-      <tr>
-        <td>{{ loop.index }}</td>
-        <td class="text-warning">{{ m.username }}</td>
-        <td class="fw-bold">{{ m.subject }}</td>
-        <td>{{ m.body }}</td>
-        <td><small class="text-secondary">{{ m.created_at[:10] if m.created_at else '' }}</small></td>
-        <td style="min-width:260px;">
-          {% if m.reply %}
-          <span class="text-success small">{{ m.reply }}</span>
-          <form method="POST" action="{{ url_for('admin_reply_message', msg_id=m.id) }}" class="mt-2 d-flex gap-2">
-            <input type="text" name="reply" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Update reply" required>
-            <button type="submit" class="btn btn-sm btn-outline-warning fw-bold">Update</button>
-          </form>
-          {% else %}
-          <form method="POST" action="{{ url_for('admin_reply_message', msg_id=m.id) }}" class="d-flex gap-2">
-            <input type="text" name="reply" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Write reply..." required>
-            <button type="submit" class="btn btn-sm btn-warning fw-bold">Reply</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
+<div class="page-title">Messages <span>Chat</span></div>
+
+<style>
+  .chat-sidebar { background: #1a1a1a; border-radius: 12px 0 0 12px; border-right: 1px solid #2a2a2a; min-height: 580px; }
+  .chat-user-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #222; transition: background .15s; text-decoration: none; display: block; }
+  .chat-user-item:hover, .chat-user-item.active { background: #2c2c2c; }
+  .chat-user-item.active { border-left: 3px solid #ffc107; }
+  .chat-main { background: #111; border-radius: 0 12px 12px 0; display: flex; flex-direction: column; min-height: 580px; }
+  .chat-header-bar { padding: 14px 20px; border-bottom: 1px solid #2a2a2a; background: #1a1a1a; border-radius: 0 12px 0 0; }
+  .chat-window { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; height: 440px; }
+  .bubble-wrap { display: flex; flex-direction: column; }
+  .bubble-wrap.sent { align-items: flex-end; }
+  .bubble-wrap.received { align-items: flex-start; }
+  .bubble { max-width: 68%; padding: 10px 14px; border-radius: 18px; font-size: .93rem; word-break: break-word; line-height: 1.4; }
+  .bubble.sent { background: #ffc107; color: #000; border-bottom-right-radius: 4px; }
+  .bubble.received { background: #2c2c2c; color: #fff; border-bottom-left-radius: 4px; }
+  .bubble-time { font-size: .7rem; color: #555; margin-top: 3px; padding: 0 4px; }
+  .chat-input-bar { padding: 12px 16px; border-top: 1px solid #2a2a2a; background: #1a1a1a; border-radius: 0 0 12px 0; }
+  .user-initial { width: 36px; height: 36px; border-radius: 50%; background: #ffc107; color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: .9rem; flex-shrink: 0; }
+  .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: #444; }
+  .online-dot { width: 8px; height: 8px; background: #28a745; border-radius: 50%; display: inline-block; margin-left: 4px; }
+</style>
+
+<div class="row g-0" style="border:1px solid #222; border-radius:12px; overflow:hidden;">
+
+  <!-- Sidebar -->
+  <div class="col-md-3 chat-sidebar" id="user-sidebar">
+    <div class="p-3 border-bottom" style="border-color:#222 !important;">
+      <span class="text-secondary small fw-bold">CONVERSATIONS</span>
+    </div>
+    {% if user_list %}
+      {% for u in user_list %}
+      <a href="{{ url_for('admin_messages', chat_user=u) }}" class="chat-user-item {{ 'active' if u == active_user }}">
+        <div class="d-flex align-items-center gap-2">
+          <div class="user-initial">{{ u[0].upper() }}</div>
+          <span class="text-white fw-bold small">{{ u }}</span>
+        </div>
+      </a>
       {% endfor %}
-    </tbody>
-  </table>
+    {% else %}
+      <div class="p-4 text-secondary small">No conversations yet.</div>
+    {% endif %}
+  </div>
+
+  <!-- Chat panel -->
+  <div class="col-md-9 chat-main">
+    {% if active_user %}
+
+    <div class="chat-header-bar d-flex align-items-center gap-2">
+      <div class="user-initial">{{ active_user[0].upper() }}</div>
+      <div>
+        <div class="fw-bold text-white">{{ active_user }} <span class="online-dot"></span></div>
+        <small class="text-secondary">User · Auto-refreshing</small>
+      </div>
+    </div>
+
+    <div class="chat-window" id="chat-window">
+      {% if thread %}
+        {% for m in thread %}
+        {% set is_admin = m.get('sender_id') == 'admin' %}
+        <div class="bubble-wrap {{ 'sent' if is_admin else 'received' }}">
+          <div class="bubble {{ 'sent' if is_admin else 'received' }}">{{ m.body }}</div>
+          <span class="bubble-time">
+            {{ 'You (Admin)' if is_admin else m.get('username', 'User') }} ·
+            {{ (m.get('timestamp') or m.get('created_at') or '')[:16].replace('T', ' ') }}
+          </span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state" id="empty-msg">No messages yet.</div>
+      {% endif %}
+    </div>
+
+    <div class="chat-input-bar">
+      <form id="reply-form" class="d-flex gap-2">
+        <input type="text" id="reply-input" class="form-control bg-dark text-white border-secondary" placeholder="Reply as admin..." autocomplete="off" required>
+        <button type="submit" class="btn btn-warning fw-bold px-4">Send</button>
+      </form>
+    </div>
+
+    <script>
+      const win = document.getElementById('chat-window');
+      const form = document.getElementById('reply-form');
+      const input = document.getElementById('reply-input');
+      const activeUser = {{ active_user | tojson }};
+
+      let lastTimestamp = {{ ((thread[-1].get('created_at') or thread[-1].get('timestamp') or '') if thread else '') | tojson }};
+
+      function scrollBottom() { win.scrollTop = win.scrollHeight; }
+
+      function formatTime(ts) { return ts ? ts.substring(0, 16).replace('T', ' ') : ''; }
+
+      function appendBubble(body, isSent, timestamp, label) {
+        const empty = document.getElementById('empty-msg');
+        if (empty) empty.remove();
+        const wrap = document.createElement('div');
+        wrap.className = `bubble-wrap ${isSent ? 'sent' : 'received'}`;
+        wrap.innerHTML = `
+          <div class="bubble ${isSent ? 'sent' : 'received'}">${body}</div>
+          <span class="bubble-time">${label} · ${formatTime(timestamp)}</span>
+        `;
+        win.appendChild(wrap);
+        scrollBottom();
+      }
+
+      // AJAX send
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        const body = input.value.trim();
+        if (!body) return;
+        input.value = '';
+
+        fetch(`/admin/messages/${activeUser}/reply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
+          body: `reply=${encodeURIComponent(body)}`
+        }).then(() => {
+          const now = new Date().toISOString();
+          appendBubble(body, true, now, 'You (Admin)');
+          lastTimestamp = now;
+        });
+      });
+
+      // Poll every 3 seconds for new user messages
+      function poll() {
+        const url = lastTimestamp
+          ? `/admin/messages/${activeUser}/poll?after=${encodeURIComponent(lastTimestamp)}`
+          : `/admin/messages/${activeUser}/poll`;
+        fetch(url)
+          .then(r => r.json())
+          .then(msgs => {
+            msgs.forEach(m => {
+              const isAdmin = m.sender_id === 'admin';
+              if (isAdmin) return; // admin messages shown optimistically on send
+              const ts = m.created_at || m.timestamp || '';
+              appendBubble(m.body, false, ts, m.username || 'User');
+              if (ts) lastTimestamp = ts;
+            });
+          })
+          .catch(() => {});
+      }
+
+      scrollBottom();
+      setInterval(poll, 3000);
+
+      // Also refresh sidebar every 5s to catch new conversations
+      setInterval(() => {
+        fetch('/admin/messages/users')
+          .then(r => r.json())
+          .then(users => {
+            const sidebar = document.getElementById('user-sidebar');
+            if (!sidebar) return;
+            const current = [...sidebar.querySelectorAll('[data-user]')].map(el => el.dataset.user);
+            users.forEach(u => {
+              if (!current.includes(u)) {
+                const a = document.createElement('a');
+                a.href = `/admin/messages/${u}`;
+                a.className = 'chat-user-item';
+                a.dataset.user = u;
+                a.innerHTML = `<div class="d-flex align-items-center gap-2"><div class="user-initial">${u[0].toUpperCase()}</div><span class="text-white fw-bold small">${u}</span></div>`;
+                sidebar.appendChild(a);
+              }
+            });
+          })
+          .catch(() => {});
+      }, 5000);
+    </script>
+
+    {% else %}
+    <div class="empty-state">Select a conversation to start.</div>
+    {% endif %}
+  </div>
+
 </div>
-{% else %}
-<p class="text-secondary">No messages yet.</p>
-{% endif %}
 {% endblock %}
