@@ -102,9 +102,6 @@
       <a href="{{ url_for('admin_messages') }}" class="{{ 'active' if 'admin_messages' in request.endpoint or 'admin_reply' in request.endpoint }}">
         💬 Messages
       </a>
-      <a href="{{ url_for('admin_create_account') }}" class="{{ 'active' if request.endpoint == 'admin_create_account' }}">
-        ➕ Create Admin
-      </a>
       <div class="divider"></div>
       <a href="{{ url_for('home') }}" target="_blank">🌐 View Site</a>
       <a href="{{ url_for('admin_logout') }}" class="danger">🚪 Logout</a>
