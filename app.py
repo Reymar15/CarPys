@@ -255,9 +255,7 @@ def signup():
         if check.status_code >= 400:
             error = f"Could not check account: {check.text}"
             return render_template("signup.html", error=error)
-        existing_profiles = check.json()
-        if existing_profiles:
-            existing = existing_profiles[0]
+        if check.json():
             error = "Email already registered."
         else:
             create_res = httpx.post(db("profiles"), headers=headers(), json={"username": username, "email": email, "password": hashed, "verified": False})
